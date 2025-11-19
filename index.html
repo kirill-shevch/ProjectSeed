@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Клеточный пиксельный канвас</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #111;
+      color: #eee;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #333;
+      color: #eee;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, transform 0.05s;
+    }
+
+    button:hover {
+      background: #444;
+      transform: translateY(-1px);
+    }
+
+    button.active {
+      box-shadow: 0 0 0 2px #fff;
+      background: #555;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-block;
+      border: 1px solid #0008;
+    }
+
+    canvas {
+      border-radius: 16px;
+      border: 1px solid #555;
+      image-rendering: pixelated;
+      background: #000;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+      cursor: crosshair;
+    }
+
+    small {
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <h1>Пиксельный канвас с клеточной физикой</h1>
+
+  <div id="controls">
+    <!-- Material buttons will be generated dynamically -->
+  </div>
+
+  <canvas id="world"></canvas>
+  <small>ЛКМ — рисовать выбранной клеткой. Поставь камни/землю и лей воду сверху.</small>
+
+  <script type="module">
+    // Import core classes
+    import { PixelWorld } from './js/core/PixelWorld.js';
+    import { Renderer } from './js/core/Renderer.js';
+    import { Engine } from './js/core/Engine.js';
+    import { MaterialRegistry } from './js/materials/MaterialRegistry.js';
+
+    // Configuration
+    const WIDTH = 120;
+    const HEIGHT = 80;
+    const PIXEL_SIZE = 6;
+
+    // Initialize the pixel engine
+    const canvas = document.getElementById('world');
+    const world = new PixelWorld(WIDTH, HEIGHT);
+    const renderer = new Renderer(canvas, PIXEL_SIZE);
+    const engine = new Engine(world, renderer);
+    const materialRegistry = new MaterialRegistry();
+
+    // Setup canvas
+    renderer.setupCanvas(WIDTH, HEIGHT);
+
+    // Current selected material
+    let currentMaterialId = 'water';
+
+    // Generate material buttons
+    const controlsDiv = document.getElementById('controls');
+    const materials = materialRegistry.getAll();
+    const materialButtons = {};
+
+    materials.forEach((material, index) => {
+      const button = document.createElement('button');
+      button.dataset.material = material.id;
+      
+      const swatch = document.createElement('span');
+      swatch.className = 'swatch';
+      swatch.style.background = material.color;
+      swatch.style.borderColor = material.borderColor;
+      
+      button.appendChild(swatch);
+      button.appendChild(document.createTextNode(material.name));
+      
+      // Set water as active by default
+      if (material.id === 'water') {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', () => {
+        currentMaterialId = material.id;
+        Object.values(materialButtons).forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+      });
+      
+      controlsDiv.appendChild(button);
+      materialButtons[material.id] = button;
+    });
+
+    // Add control buttons
+    const toggleRunBtn = document.createElement('button');
+    toggleRunBtn.id = 'toggleRun';
+    toggleRunBtn.textContent = 'Пауза';
+    toggleRunBtn.addEventListener('click', () => {
+      const running = engine.togglePause();
+      toggleRunBtn.textContent = running ? 'Пауза' : 'Старт';
+    });
+    controlsDiv.appendChild(toggleRunBtn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.id = 'clear';
+    clearBtn.textContent = 'Очистить';
+    clearBtn.addEventListener('click', () => {
+      world.clear();
+    });
+    controlsDiv.appendChild(clearBtn);
+
+    // Mouse painting functionality
+    let isMouseDown = false;
+
+    function paintAtEvent(event) {
+      const coords = renderer.canvasCoordsToCell(event);
+      if (!coords) return;
+      
+      const { x, y } = coords;
+      if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+      
+      const material = materialRegistry.create(currentMaterialId);
+      world.setMaterial(x, y, material);
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      paintAtEvent(e);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+      paintAtEvent(e);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isMouseDown = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      isMouseDown = false;
+    });
+
+    // Start the engine
+    engine.start();
+  </script>
+</body>
+</html>
