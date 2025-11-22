@@ -11,6 +11,20 @@ export class EarthWet extends EarthBase {
   }
 
   /**
+   * Override update to add vaporization before parent update
+   */
+  update(x, y, world) {
+    // Vaporization: 0.017% chance to dry out (0.5% / 30)
+    if (Math.random() < 0.00017) {
+      world.setMaterial(x, y, new EarthDry());
+      return true;
+    }
+
+    // Call parent update (gravity and landing)
+    return super.update(x, y, world);
+  }
+
+  /**
    * Called when particle has landed
    * Spreads moisture to nearby dry earth
    */

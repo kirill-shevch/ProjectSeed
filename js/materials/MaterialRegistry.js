@@ -3,6 +3,9 @@ import { Water } from './Water.js';
 import { EarthDry } from './EarthDry.js';
 import { EarthWet } from './EarthWet.js';
 import { Stone } from './Stone.js';
+import { Seed } from './Seed.js';
+import { RootDry } from './RootDry.js';
+import { StemDry } from './StemDry.js';
 
 /**
  * MaterialRegistry - factory for creating material instances
@@ -30,10 +33,28 @@ export class MaterialRegistry {
         color: '#8b5a2b',
         borderColor: '#0008'
       },
-      'stone': { 
-        class: Stone, 
-        name: 'Камень', 
+      'stone': {
+        class: Stone,
+        name: 'Камень',
         color: '#aaaaaa',
+        borderColor: '#0008'
+      },
+      'seed': {
+        class: Seed,
+        name: 'Семя',
+        color: '#9b7653',
+        borderColor: '#0008'
+      },
+      'root': {
+        class: RootDry,
+        name: 'Корень',
+        color: '#d2691e',
+        borderColor: '#0008'
+      },
+      'stem': {
+        class: StemDry,
+        name: 'Стебель',
+        color: '#7cba3d',
         borderColor: '#0008'
       }
     };

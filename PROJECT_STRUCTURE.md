@@ -10,13 +10,13 @@
 
 ## 📖 What This Project Is
 
-A **discrete particle simulator** where every pixel on the screen represents a material (air, water, earth, stone, etc.). The simulation runs in discrete time steps:
+A **discrete particle simulator** where every pixel on the screen represents a material (air, water, earth, stone, plant parts, etc.). The simulation runs in discrete time steps:
 
 1. Each frame, the grid is updated
 2. Each material has its own logic for:
    - How gravity affects it
    - How it interacts with neighboring cells
-3. Pixels can have **internal states** (e.g., "just landed", "has spread moisture")
+3. Pixels can have **internal states** (e.g., "just landed", "has spread moisture", "spawn cooldown")
 4. Some interactions happen **only once** (on coordinate change or first contact with specific materials)
 
 ## 🏗️ Architecture
@@ -36,10 +36,15 @@ js/
     ├── MaterialRegistry.js   # Material factory/registry
     ├── EarthBase.js          # Base for earth-like materials
     ├── Air.js                # Empty space
-    ├── Water.js              # Liquid physics
+    ├── Water.js              # Liquid physics + vaporization
     ├── Stone.js              # Solid, heavy material
     ├── EarthDry.js           # Dry earth (absorbs water)
-    └── EarthWet.js           # Wet earth (spreads moisture)
+    ├── EarthWet.js           # Wet earth (spreads moisture + vaporization)
+    ├── Seed.js               # Plant seed (germinates on wet earth)
+    ├── RootDry.js            # Dry root (absorbs water, spawns new roots)
+    ├── RootWet.js            # Wet root (transfers water upward/sideways)
+    ├── StemDry.js            # Dry stem (receives water from below)
+    └── StemWet.js            # Wet stem (grows with directional momentum)
 ```
 
 ### Key Design Patterns
@@ -53,14 +58,20 @@ Material (abstract base)
 ├── EarthBase (shared earth logic)
 │   ├── EarthDry
 │   └── EarthWet
+├── Seed
+├── RootDry
+├── RootWet
+├── StemDry
+├── StemWet
 └── [Future materials...]
 ```
 
 #### 2. **State Management**
 Materials can have internal state:
-- `justLanded` - tracks when a falling particle stops
-- `hasSpread` - prevents moisture from spreading multiple times
-- Custom states for new materials
+- **Basic states**: `justLanded`, `hasSpread`
+- **Cooldown states**: `cooldown`, `spawnCooldown`
+- **Directional states**: `preferredDirection` (for directional growth)
+- **Custom states** for new materials
 
 #### 3. **Physics Lifecycle**
 Each frame for each pixel:
@@ -72,158 +83,130 @@ Each frame for each pixel:
    - Interact (affect neighboring pixels)
    - Stay still
 
-## 🔧 How to Add a New Material
+## 🎮 Implemented Features
 
-### Step 1: Create Material Class
-
-```javascript
-// js/materials/YourMaterial.js
-import { Material } from './Material.js';
-
-export class YourMaterial extends Material {
-  constructor() {
-    super('YourMaterial', '#FF0000', density);
-    // Add any state you need
-    this.yourState = false;
-  }
-
-  hasGravity() {
-    return true; // or false
-  }
-
-  update(x, y, world) {
-    // 1. Try to fall (if has gravity)
-    // 2. Check interactions with neighbors
-    // 3. Apply state-based logic
-    // 4. Return true if anything changed
-    return false;
-  }
-}
-```
-
-### Step 2: Register in MaterialRegistry
-
-```javascript
-// js/materials/MaterialRegistry.js
-import { YourMaterial } from './YourMaterial.js';
-
-this.materials = {
-  // ... existing materials
-  'your_material': {
-    class: YourMaterial,
-    name: 'Display Name',
-    color: '#FF0000',
-    borderColor: '#CC0000'
-  }
-};
-```
-
-### Step 3: That's It!
-The system automatically:
-- Creates the button in the UI
-- Handles drawing/placing
-- Runs update logic each frame
-
-## 🎮 Current Features
-
-### Materials
+### Basic Materials
 - **Air**: Empty space, no physics
-- **Water**: Flows left/right, falls through air, absorbed by dry earth
+- **Water**:
+  - Flows left/right, falls through air
+  - Absorbed by dry earth (below, left, right)
+  - Vaporizes slowly (0.033% per tick)
+  - Slides off plant materials
 - **Stone**: Heavy solid, falls through air and water, stops on earth/stone
 - **Earth (Dry)**: Falls through air/water, absorbs water → becomes wet, slides off pillars
-- **Earth (Wet)**: Same as dry, but spreads moisture to nearby dry earth
+- **Earth (Wet)**: Same as dry, spreads moisture to nearby dry earth, vaporizes slowly (0.017% per tick)
 
-### Physics
-- ✅ Gravity simulation
-- ✅ Density-based interactions (heavy sinks through light)
-- ✅ Material transformations (dry earth + water → wet earth)
-- ✅ Anti-pillar logic (50% chance to slide off narrow pillars)
-- ✅ State-based single-fire events
+### Plant Growth System ✅ COMPLETE
 
-## 🌱 Future Roadmap
+#### Seed Material
+- Falls through air and water (has gravity)
+- Germinates when landing on wet earth
+- Transformation: seed → stem (above), wet earth → root (below)
+- Stays dormant on dry earth or stone
 
-### Phase 1: Plant System (Next)
+#### Root System (RootDry + RootWet)
 
-**Goal**: Seeds grow into plants with roots, stems, and leaves
+**RootDry:**
+- Searches for water/wet earth in all 4 directions
+- Absorbs water: wet earth → dry earth, root becomes wet
+- Absorbs pure water: water → air, root becomes wet
+- Spawns new roots with smart logic:
+  - Only spawns in earth cells (left, right, bottom - not top)
+  - Prevents squares: new root must have ≤1 root neighbor
+  - Cooldown: 30 ticks between spawns
+  - Both parent and child start with cooldown
+- Preserves spawn cooldown when becoming wet
 
-#### New Material Types Needed:
-1. **Seed** - starting cell
-   - State: `hasGrown`
-   - Needs: adjacent earth + water nearby
-   - Action: divides into Root + Stem
+**RootWet:**
+- Transfers water with priority system:
+  - Priority 0 (highest): Top cell (stem or root above)
+  - Priority 1: Left or right (random choice)
+  - Never transfers downward
+- Becomes dry after water transfer
+- Preserves spawn cooldown when becoming dry
 
-2. **Root** - grows downward into earth
-   - State: `age`, `hasWater`
-   - Behavior: searches for water, absorbs it
-   - Growth: spreads down/sideways in earth
+#### Stem System (StemDry + StemWet)
 
-3. **Stem** - grows upward
-   - State: `age`, `height`
-   - Behavior: grows up from seed position
-   - Growth: extends upward if root has water
+**StemDry:**
+- Waits for water from wet root/stem below
+- Receives water and becomes StemWet
+- Tracks `preferredDirection` for growth momentum
+- Preserves direction when transforming
 
-4. **Leaf** - grows from stem
-   - State: `age`
-   - Behavior: sprouts from stem at intervals
-   - Growth: extends left/right from stem
+**StemWet:**
+- **Directional growth momentum:**
+  - Remembers how it was created (`preferredDirection`)
+  - If growing left: 70% left, 20% up, 10% right
+  - If growing right: 70% right, 20% up, 10% left
+  - If growing up (default): 60% up, 20% left, 20% right
+- **Smart growth:**
+  - Only grows into air cells
+  - Prevents squares: new stem must have ≤1 stem neighbor
+  - Creates zig-zag patterns naturally
+- Becomes dry after spawning new stem
+- New stem inherits growth direction
 
-#### Implementation Strategy:
+### Physics Systems
+
+#### Vaporization System
+- **Water**: 0.033% chance per tick to evaporate → air
+- **Wet Earth**: 0.017% chance per tick to dry → dry earth
+- Creates natural water cycle
+- 30x slower than original design for better balance
+
+#### Growth Cooldown System
+- Prevents instant/explosive growth
+- **Root spawn cooldown**: 30 ticks between new root spawns
+- **Stem growth**: Inherited from general cooldown (15 ticks for water transfer)
+- Cooldowns preserved across transformations (dry ↔ wet)
+
+#### Square Prevention Algorithm
+Both roots and stems use neighbor counting:
 ```javascript
-// Example: Seed.js
-class Seed extends Material {
-  constructor() {
-    super('Seed', '#8B4513', 3);
-    this.hasGrown = false;
-    this.ticksSinceCheck = 0;
-  }
-
-  update(x, y, world) {
-    if (this.hasGrown) return false;
-    
-    // Check every N ticks
-    if (++this.ticksSinceCheck < 30) return false;
-    this.ticksSinceCheck = 0;
-
-    // Check for earth below and water nearby
-    if (this.canGrow(x, y, world)) {
-      this.sprout(x, y, world);
-      this.hasGrown = true;
-      return true;
-    }
-    return false;
-  }
-
-  canGrow(x, y, world) {
-    // Check earth below
-    const below = world.getPixel(x, y + 1);
-    if (!(below.material instanceof EarthDry || below.material instanceof EarthWet)) {
-      return false;
-    }
-
-    // Check for water nearby (within radius)
-    return this.hasWaterNearby(x, y, world, 3);
-  }
-
-  sprout(x, y, world) {
-    // Create root below
-    world.setMaterial(x, y + 1, new Root());
-    // Transform self into stem
-    world.setMaterial(x, y, new Stem());
-  }
+countNeighbors(x, y, world) {
+  // Check all 4 directions
+  // Count how many neighbors of same type
+  // Only allow spawn if count ≤ 1
+  // Prevents closed loops and thick growth
 }
 ```
 
-### Phase 2: Advanced Features (Later)
-- Fire/burning
-- Sand (falls like earth but through water)
-- Lava (flows, burns things)
-- Ice (freezes water)
-- Steam (water → steam when heated)
+## 🔧 Implementation Details
 
-### Phase 3: Optimization (When needed)
-- Spatial partitioning for large grids
-- Update only "active" regions
-- Multi-threaded simulation
+### Plant Growth Cycle
+
+**Full growth sequence:**
+```
+1. Seed lands on wet earth
+2. Seed → StemDry (above), wet earth → RootDry (below)
+3. RootDry finds wet earth/water
+4. RootDry → RootWet, spawns new RootDry (if cooldown ready)
+5. RootWet transfers water upward to StemDry
+6. StemDry → StemWet
+7. StemWet grows new StemDry in weighted direction
+8. Pattern repeats, creating branching plant structure
+```
+
+### Water Flow Through Plant
+```
+Wet Earth/Water → RootDry (absorb)
+                     ↓
+                 RootWet (transfer up)
+                     ↓
+                 StemDry (receive)
+                     ↓
+                 StemWet (grow)
+                     ↓
+              New StemDry (continues)
+```
+
+### Directional Momentum Example
+```
+Initial stem grows up → spawns left
+Left stem continues left → continues left
+Eventually goes up → continues up
+Creates natural zig-zag staircase pattern
+```
 
 ## 🤖 AI Assistant Guidelines
 
@@ -236,6 +219,8 @@ When working on this project in future conversations:
 4. **Test interactions** - think through edge cases (what if X touches Y?)
 5. **Maintain the registry** - always update MaterialRegistry.js
 6. **Preserve demo scene** - index.html is kept simple intentionally
+7. **Use cooldowns** - prevent instant growth/transformations
+8. **Prevent squares** - use neighbor counting for organic growth
 
 ### ❌ DON'T:
 1. **Don't add physics to Pixel class** - it just holds a material
@@ -243,13 +228,16 @@ When working on this project in future conversations:
 3. **Don't make materials depend on each other** - use `instanceof` checks
 4. **Don't break existing materials** - test that current physics still works
 5. **Don't over-engineer** - start simple, add complexity only when needed
+6. **Don't forget cooldowns** - always preserve cooldowns across transformations
 
 ### 🔍 When Debugging:
 1. Check if material is falling when it shouldn't (or vice versa)
 2. Check if swapping is working correctly
 3. Check if state flags are being reset properly
 4. Check if instanceof checks are correct (import the right classes!)
-5. Test edge cases: corners, edges of grid, multiple materials
+5. Check cooldown preservation across transformations
+6. Test edge cases: corners, edges of grid, multiple materials
+7. Watch for infinite growth loops
 
 ### 📝 Common Patterns:
 
@@ -270,24 +258,106 @@ if (belowMaterial.density < this.density) {
 }
 ```
 
-**Material transformation:**
+**Material transformation with cooldown preservation:**
 ```javascript
-if (belowPixel.material instanceof Water) {
-  world.setMaterial(x, y, new NewMaterial());
+if (neighborPixel.material instanceof TargetMaterial) {
+  const newMaterial = new NewMaterial();
+  newMaterial.cooldown = 15;
+  newMaterial.spawnCooldown = this.spawnCooldown; // PRESERVE!
+  world.setMaterial(x, y, newMaterial);
   return true;
 }
 ```
 
-**Neighbor checking:**
+**Neighbor counting (square prevention):**
 ```javascript
-for (let dx = -1; dx <= 1; dx++) {
-  for (let dy = -1; dy <= 1; dy++) {
-    if (dx === 0 && dy === 0) continue;
-    const neighbor = world.getPixel(x + dx, y + dy);
-    // ... check neighbor
+countNeighbors(x, y, world) {
+  const directions = [
+    { x: x, y: y - 1 }, { x: x, y: y + 1 },
+    { x: x - 1, y: y }, { x: x + 1, y: y }
+  ];
+  let count = 0;
+  for (const dir of directions) {
+    if (dir.x < 0 || dir.x >= world.width ||
+        dir.y < 0 || dir.y >= world.height) continue;
+    const pixel = world.getPixel(dir.x, dir.y);
+    if (pixel.material.name === 'TargetType') count++;
+  }
+  return count;
+}
+```
+
+**Weighted random selection:**
+```javascript
+const candidates = [
+  { option: 'up', weight: 0.6 },
+  { option: 'left', weight: 0.2 },
+  { option: 'right', weight: 0.2 }
+];
+const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
+let random = Math.random() * totalWeight;
+let chosen = candidates[0];
+for (const candidate of candidates) {
+  random -= candidate.weight;
+  if (random <= 0) {
+    chosen = candidate;
+    break;
   }
 }
 ```
+
+## 🌱 Plant System Design Decisions
+
+### Why Separate Dry/Wet States?
+- **Visibility**: Players can see water flowing through plant
+- **Gameplay**: Creates interesting feedback loop
+- **Realism**: Mimics real plant water transport (xylem)
+- **Debugging**: Easy to see where water is stuck
+
+### Why Growth Cooldowns?
+- **Performance**: Prevents exponential growth lag
+- **Visibility**: Players can observe growth happening
+- **Balance**: Makes plant growth feel natural, not instant
+- **Control**: Easy to tune growth speed
+
+### Why Directional Momentum?
+- **Aesthetics**: Creates beautiful zig-zag patterns
+- **Realism**: Mimics how real plants grow (apical dominance)
+- **Variety**: Prevents boring straight vertical lines
+- **Emergent**: Creates unexpected interesting structures
+
+### Why Square Prevention?
+- **Organic look**: Thin branches feel more plant-like
+- **Performance**: Prevents solid mass of plant material
+- **Gameplay**: Roots/stems spread farther
+- **Visual clarity**: Easier to see plant structure
+
+## 🎯 Future Roadmap
+
+### Phase 1: Enhanced Plant System (Next)
+- **Leaves** → sprout from stems, different color
+- **Flowers** → grow from mature stems, produce seeds
+- **Fruit** → contains seeds, can be harvested
+- **Death mechanics** → plants decay without water
+- **Seasonal changes** → growth rates vary
+
+### Phase 2: Environmental Systems
+- **Fire** → burns plants, spreads to adjacent flammable materials
+- **Sand** → falls like earth but through water (lower density)
+- **Lava** → flows slowly, burns everything, cools to stone
+- **Ice/Steam** → water phase changes based on temperature
+
+### Phase 3: Advanced Features
+- **Temperature system** → affects all materials
+- **Chemical reactions** → materials combine to create new ones
+- **Ecosystem dynamics** → plants consume nutrients from earth
+- **Multi-cell organisms** → creatures made of multiple pixels
+
+### Phase 4: Optimization
+- Spatial partitioning (quadtree) for large grids
+- Update only "active" regions (dirty rectangles)
+- Multi-threaded simulation (Web Workers)
+- GPU acceleration (WebGL compute shaders)
 
 ## 🎨 UI Integration
 
@@ -302,18 +372,20 @@ The demo scene (`index.html`) is kept simple intentionally:
 For AI assistants, these are the most important files to read:
 
 1. **js/materials/Material.js** - Base class, all materials extend this
-2. **js/materials/EarthBase.js** - Example of shared behavior base class
-3. **js/core/PixelWorld.js** - Grid management, simulation loop
-4. **js/materials/MaterialRegistry.js** - How materials are registered
+2. **js/materials/RootDry.js** - Complex example: water absorption, spawning, cooldowns
+3. **js/materials/StemWet.js** - Complex example: directional growth, weighted selection
+4. **js/core/PixelWorld.js** - Grid management, simulation loop
+5. **js/materials/MaterialRegistry.js** - How materials are registered
 
 ## 🔄 Simulation Flow
 
 ```
 1. Engine starts → calls world.step() each frame
 2. PixelWorld.step():
-   - Iterates through grid (bottom to top)
+   - Iterates through grid (bottom to top, left to right)
    - For each pixel: pixel.update(x, y, world)
 3. Material.update():
+   - Decrements cooldowns
    - Checks surroundings
    - Applies physics
    - Returns true if changed
@@ -328,16 +400,36 @@ When adding a material:
 3. Test edge cases (corners, borders)
 4. Test state changes (if any)
 5. Watch for unexpected behavior over time
+6. Test cooldown behavior
+7. Test transformation chains (dry → wet → dry)
+
+## 📊 Performance Considerations
+
+Current optimizations:
+- Bottom-to-top iteration (gravity falls naturally)
+- Early returns in update() when no action needed
+- Cooldowns prevent excessive transformations
+- Square prevention limits growth density
+
+When adding features:
+- Avoid nested loops where possible
+- Cache neighbor lookups
+- Use early returns
+- Consider cooldowns for expensive operations
 
 ## 📖 Russian Summary (Краткое описание)
 
-Этот проект - дискретный симулятор частиц. Каждый пиксель соответствует материалу (воздух, вода, земля, камень). Каждый шаг симуляции обновляет сетку - для каждого материала определена логика гравитации и взаимодействия с соседями. 
+Этот проект - дискретный симулятор частиц с полной системой роста растений. Каждый пиксель - материал (воздух, вода, земля, камень, части растений).
 
-Главная философия: **легко добавлять новые материалы, легко исправлять ошибки взаимодействия**.
+**Система роста растений:**
+- Семена прорастают на влажной земле
+- Корни ищут воду, растут с задержкой
+- Стебли растут вверх с направленным импульсом (зигзаги)
+- Вода течёт через корни к стеблям
+- Предотвращение квадратов для органичного роста
 
-Следующий шаг: система роста растений (семена → корни → стебли → листья).
+**Главная философия**: легко добавлять новые материалы, легко исправлять ошибки взаимодействия, каждый материал самодостаточен.
 
 ---
 
-**Remember**: The goal is maintainability and extensibility. Keep it simple, keep it clear, keep it modular.
-
+**Remember**: The goal is maintainability and extensibility. Keep it simple, keep it clear, keep it modular. The plant system demonstrates how complex emergent behavior can arise from simple, well-designed material rules.

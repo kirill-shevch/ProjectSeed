@@ -20,16 +20,65 @@ export class Water extends Material {
   }
 
   update(x, y, world) {
+    // Vaporization: 0.033% chance to evaporate (1% / 30)
+    if (Math.random() < 0.00033) {
+      world.setMaterial(x, y, new Air());
+      return true;
+    }
+
     const yBelow = y + 1;
 
-    // Check if water can be absorbed by dry earth below
+    // Check if water is on top of plant material - slide off
     if (yBelow < world.height) {
       const belowPixel = world.getPixel(x, yBelow);
-      if (belowPixel.material instanceof EarthDry) {
-        // Water gets absorbed, earth becomes wet
-        world.setMaterial(x, y, new Air());
-        world.setMaterial(x, yBelow, new EarthWet());
-        return true;
+      const belowName = belowPixel.material.name;
+
+      if (belowName === 'RootDry' || belowName === 'RootWet' ||
+          belowName === 'StemDry' || belowName === 'StemWet' ||
+          belowName === 'Seed') {
+        // Try to slide left or right
+        const leftX = x - 1;
+        const rightX = x + 1;
+        const candidates = [];
+
+        if (leftX >= 0) {
+          const leftPixel = world.getPixel(leftX, y);
+          if (leftPixel.material instanceof Air) {
+            candidates.push(leftX);
+          }
+        }
+
+        if (rightX < world.width) {
+          const rightPixel = world.getPixel(rightX, y);
+          if (rightPixel.material instanceof Air) {
+            candidates.push(rightX);
+          }
+        }
+
+        if (candidates.length > 0) {
+          const targetX = candidates[Math.floor(Math.random() * candidates.length)];
+          world.swapPixels(x, y, targetX, y);
+          return true;
+        }
+      }
+    }
+
+    // Check if water can be absorbed by dry earth (below, left, right)
+    const earthCheckPositions = [
+      { x: x, y: yBelow },      // below
+      { x: x - 1, y: y },       // left
+      { x: x + 1, y: y }        // right
+    ];
+
+    for (const pos of earthCheckPositions) {
+      if (pos.x >= 0 && pos.x < world.width && pos.y >= 0 && pos.y < world.height) {
+        const pixel = world.getPixel(pos.x, pos.y);
+        if (pixel.material instanceof EarthDry) {
+          // Water gets absorbed, earth becomes wet
+          world.setMaterial(x, y, new Air());
+          world.setMaterial(pos.x, pos.y, new EarthWet());
+          return true;
+        }
       }
     }
 
