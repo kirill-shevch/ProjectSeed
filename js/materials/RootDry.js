@@ -47,13 +47,13 @@ export class RootDry extends Material {
 
       const neighborPixel = world.getPixel(neighbor.x, neighbor.y);
 
-      // Absorb from wet earth
-      if (neighborPixel.material instanceof EarthWet) {
+      // Absorb from wet earth (30% chance)
+      if (neighborPixel.material instanceof EarthWet && Math.random() < 0.3) {
         // Absorb water: wet earth → dry earth, dry root → wet root
         world.setMaterial(neighbor.x, neighbor.y, new EarthDry());
 
         const newRootWet = new RootWet();
-        newRootWet.cooldown = 15; // Set cooldown for new wet root
+        newRootWet.cooldown = 30; // Set cooldown for new wet root
 
         // Try to spawn a new root after absorption (only if spawn cooldown is ready)
         if (this.spawnCooldown === 0) {
@@ -67,13 +67,13 @@ export class RootDry extends Material {
         return true;
       }
 
-      // Absorb from water
-      if (neighborPixel.material instanceof Water) {
+      // Absorb from water (30% chance)
+      if (neighborPixel.material instanceof Water && Math.random() < 0.3) {
         // Absorb water: water → air, dry root → wet root
         world.setMaterial(neighbor.x, neighbor.y, new Air());
 
         const newRootWet = new RootWet();
-        newRootWet.cooldown = 15; // Set cooldown for new wet root
+        newRootWet.cooldown = 30; // Set cooldown for new wet root
 
         // Try to spawn a new root after absorption (only if spawn cooldown is ready)
         if (this.spawnCooldown === 0) {

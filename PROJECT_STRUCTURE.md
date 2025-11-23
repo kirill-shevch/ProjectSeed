@@ -89,12 +89,13 @@ Each frame for each pixel:
 - **Air**: Empty space, no physics
 - **Water**:
   - Flows left/right, falls through air
-  - Absorbed by dry earth (below, left, right)
+  - Absorbed by dry earth in all 4 directions with probabilities:
+    - 80% below, 50% sides (left/right), 20% above
   - Vaporizes slowly (0.033% per tick)
   - Slides off plant materials
 - **Stone**: Heavy solid, falls through air and water, stops on earth/stone
 - **Earth (Dry)**: Falls through air/water, absorbs water → becomes wet, slides off pillars
-- **Earth (Wet)**: Same as dry, spreads moisture to nearby dry earth, vaporizes slowly (0.017% per tick)
+- **Earth (Wet)**: Same as dry, spreads moisture in all 4 directions (80% below, 50% sides, 20% above), vaporizes slowly (0.017% per tick)
 
 ### Plant Growth System ✅ COMPLETE
 
@@ -108,8 +109,9 @@ Each frame for each pixel:
 
 **RootDry:**
 - Searches for water/wet earth in all 4 directions
-- Absorbs water: wet earth → dry earth, root becomes wet
-- Absorbs pure water: water → air, root becomes wet
+- **30% chance** to absorb water: wet earth → dry earth, root becomes wet
+- **30% chance** to absorb pure water: water → air, root becomes wet
+- **Absorption cooldown**: 30 ticks between consumption attempts
 - Spawns new roots with smart logic:
   - Only spawns in earth cells (left, right, bottom - not top)
   - Prevents squares: new root must have ≤1 root neighbor
@@ -134,17 +136,15 @@ Each frame for each pixel:
 - Preserves direction when transforming
 
 **StemWet:**
-- **Directional growth momentum:**
-  - Remembers how it was created (`preferredDirection`)
-  - If growing left: 70% left, 20% up, 10% right
-  - If growing right: 70% right, 20% up, 10% left
-  - If growing up (default): 60% up, 20% left, 20% right
+- **Vertical growth only:**
+  - Grows straight upward when water is available
+  - No lateral branching or directional momentum
+  - Creates simple vertical stalks
 - **Smart growth:**
   - Only grows into air cells
   - Prevents squares: new stem must have ≤1 stem neighbor
-  - Creates zig-zag patterns naturally
-- Becomes dry after spawning new stem
-- New stem inherits growth direction
+  - Growth cooldown: 15 ticks between growth
+- Becomes dry after spawning new stem above
 
 ### Physics Systems
 
@@ -157,7 +157,8 @@ Each frame for each pixel:
 #### Growth Cooldown System
 - Prevents instant/explosive growth
 - **Root spawn cooldown**: 30 ticks between new root spawns
-- **Stem growth**: Inherited from general cooldown (15 ticks for water transfer)
+- **Root absorption cooldown**: 30 ticks between water consumption attempts
+- **Stem growth**: 15 ticks between growth cycles
 - Cooldowns preserved across transformations (dry ↔ wet)
 
 #### Square Prevention Algorithm
@@ -200,12 +201,12 @@ Wet Earth/Water → RootDry (absorb)
               New StemDry (continues)
 ```
 
-### Directional Momentum Example
+### Vertical Stem Growth Example
 ```
-Initial stem grows up → spawns left
-Left stem continues left → continues left
-Eventually goes up → continues up
-Creates natural zig-zag staircase pattern
+Initial stem grows up → spawns up
+New stem grows up → spawns up
+Continues upward → creates straight vertical stalk
+Simple, predictable vertical growth pattern
 ```
 
 ## 🤖 AI Assistant Guidelines
@@ -320,11 +321,11 @@ for (const candidate of candidates) {
 - **Balance**: Makes plant growth feel natural, not instant
 - **Control**: Easy to tune growth speed
 
-### Why Directional Momentum?
-- **Aesthetics**: Creates beautiful zig-zag patterns
-- **Realism**: Mimics how real plants grow (apical dominance)
-- **Variety**: Prevents boring straight vertical lines
-- **Emergent**: Creates unexpected interesting structures
+### Why Vertical-Only Stems?
+- **Simplicity**: Easy to understand and predict growth
+- **Realism**: Mimics grass, reeds, and straight-growing plants
+- **Clarity**: Clear visual representation of water flow
+- **Performance**: Simpler logic, faster updates
 
 ### Why Square Prevention?
 - **Organic look**: Thin branches feel more plant-like
@@ -423,9 +424,10 @@ When adding features:
 
 **Система роста растений:**
 - Семена прорастают на влажной земле
-- Корни ищут воду, растут с задержкой
-- Стебли растут вверх с направленным импульсом (зигзаги)
+- Корни ищут воду с 30% вероятностью поглощения, растут с задержкой
+- Стебли растут прямо вверх (вертикально)
 - Вода течёт через корни к стеблям
+- Вода распространяется во все 4 направления (80% вниз, 50% в стороны, 20% вверх)
 - Предотвращение квадратов для органичного роста
 
 **Главная философия**: легко добавлять новые материалы, легко исправлять ошибки взаимодействия, каждый материал самодостаточен.

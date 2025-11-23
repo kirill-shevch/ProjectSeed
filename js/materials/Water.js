@@ -63,17 +63,18 @@ export class Water extends Material {
       }
     }
 
-    // Check if water can be absorbed by dry earth (below, left, right)
+    // Check if water can be absorbed by dry earth (all 4 directions with probabilities)
     const earthCheckPositions = [
-      { x: x, y: yBelow },      // below
-      { x: x - 1, y: y },       // left
-      { x: x + 1, y: y }        // right
+      { x: x, y: yBelow, probability: 0.8 },      // below: 80%
+      { x: x - 1, y: y, probability: 0.5 },       // left: 50%
+      { x: x + 1, y: y, probability: 0.5 },       // right: 50%
+      { x: x, y: y - 1, probability: 0.2 }        // above: 20%
     ];
 
     for (const pos of earthCheckPositions) {
       if (pos.x >= 0 && pos.x < world.width && pos.y >= 0 && pos.y < world.height) {
         const pixel = world.getPixel(pos.x, pos.y);
-        if (pixel.material instanceof EarthDry) {
+        if (pixel.material instanceof EarthDry && Math.random() < pos.probability) {
           // Water gets absorbed, earth becomes wet
           world.setMaterial(x, y, new Air());
           world.setMaterial(pos.x, pos.y, new EarthWet());

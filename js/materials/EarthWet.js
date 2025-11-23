@@ -39,33 +39,23 @@ export class EarthWet extends EarthBase {
   }
 
   /**
-   * Spread moisture to adjacent dry earth pixels
+   * Spread moisture to adjacent dry earth pixels in all 4 cardinal directions
    */
   spreadMoisture(x, y, world) {
-    const yBelow = y + 1;
-    if (yBelow >= world.height) return;
+    // Check all 4 cardinal directions with probabilities
+    const spreadPositions = [
+      { x: x, y: y + 1, probability: 0.8 },      // below: 80%
+      { x: x - 1, y: y, probability: 0.5 },      // left: 50%
+      { x: x + 1, y: y, probability: 0.5 },      // right: 50%
+      { x: x, y: y - 1, probability: 0.2 }       // above: 20%
+    ];
 
-    // Below: 70% chance
-    const belowPixel = world.getPixel(x, yBelow);
-    if (belowPixel.material instanceof EarthDry && Math.random() < 0.7) {
-      world.setMaterial(x, yBelow, new EarthWet());
-    }
-
-    // Below-left: 25% chance
-    const leftX = x - 1;
-    if (leftX >= 0) {
-      const belowLeftPixel = world.getPixel(leftX, yBelow);
-      if (belowLeftPixel.material instanceof EarthDry && Math.random() < 0.25) {
-        world.setMaterial(leftX, yBelow, new EarthWet());
-      }
-    }
-
-    // Below-right: 25% chance
-    const rightX = x + 1;
-    if (rightX < world.width) {
-      const belowRightPixel = world.getPixel(rightX, yBelow);
-      if (belowRightPixel.material instanceof EarthDry && Math.random() < 0.25) {
-        world.setMaterial(rightX, yBelow, new EarthWet());
+    for (const pos of spreadPositions) {
+      if (pos.x >= 0 && pos.x < world.width && pos.y >= 0 && pos.y < world.height) {
+        const pixel = world.getPixel(pos.x, pos.y);
+        if (pixel.material instanceof EarthDry && Math.random() < pos.probability) {
+          world.setMaterial(pos.x, pos.y, new EarthWet());
+        }
       }
     }
   }

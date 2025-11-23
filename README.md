@@ -69,20 +69,20 @@ js/
 | Material | Behavior | Density |
 |----------|----------|---------|
 | **Air** | Empty space | 0 |
-| **Water** | Falls, flows sideways, absorbed by earth (left/right/below), evaporates slowly (0.033% per tick) | 2 |
+| **Water** | Falls, flows sideways, absorbed by earth in all 4 directions (80% below, 50% sides, 20% above), evaporates slowly (0.033% per tick) | 2 |
 | **Stone** | Heavy, falls through air/water, stops on earth | 5 |
 | **Earth (Dry)** | Falls, absorbs water → becomes wet, slides off pillars | 4 |
-| **Earth (Wet)** | Same as dry + spreads moisture to nearby dry earth, slowly dries (0.017% per tick) | 4 |
+| **Earth (Wet)** | Same as dry + spreads moisture in all 4 directions (80% below, 50% sides, 20% above), slowly dries (0.017% per tick) | 4 |
 
 ### Plant Materials
 
 | Material | Behavior | Key Features |
 |----------|----------|--------------|
 | **Seed** | Falls until landing on wet earth, then germinates | Creates stem above + root below on germination |
-| **Root (Dry)** | Searches for water/wet earth in all 4 directions | Absorbs water → becomes wet, spawns new roots with cooldown (30 ticks) |
+| **Root (Dry)** | Searches for water/wet earth in all 4 directions | 30% chance to absorb water → becomes wet, spawns new roots with cooldown (30 ticks), absorption cooldown (30 ticks) |
 | **Root (Wet)** | Transfers water to dry roots/stems | Priority: top (0) > left/right (1, random), becomes dry after transfer |
 | **Stem (Dry)** | Waits for water from below | Receives water from wet root/stem → becomes wet |
-| **Stem (Wet)** | Grows into air cells | Directional momentum: 70% continue current direction, creates zig-zag patterns |
+| **Stem (Wet)** | Grows straight upward into air cells | Vertical growth only, creates straight plant stems |
 
 ## 🌱 Plant Growth System
 
@@ -94,22 +94,25 @@ The plant growth system simulates realistic plant behavior:
 3. **Lands on dry earth/stone** → stays dormant
 
 ### Root Network
-- **Water absorption**: Dry roots absorb from wet earth or water cells
+- **Water absorption**: Dry roots have 30% chance to absorb from wet earth or water cells
 - **Smart expansion**: Roots spawn in earth (left/right/bottom), avoiding squares
 - **Growth cooldown**: 30-tick delay between spawns for natural spreading
+- **Absorption cooldown**: 30-tick delay between water consumption attempts
 - **Water transfer**: Wet roots transfer water upward (priority) or sideways (random)
 
 ### Stem Growth
-- **Vertical bias**: 60% chance to grow upward, 20% left, 20% right
-- **Directional momentum**: Stems remember their growth direction
-  - Left-growing stems: 70% continue left, 20% up, 10% right
-  - Right-growing stems: 70% continue right, 20% up, 10% left
-- **Zig-zag patterns**: Creates natural branching structures
+- **Vertical growth**: Stems grow straight upward only
+- **Simple mechanics**: No directional branching, creates straight vertical stalks
 - **Square prevention**: Only grows where it would have ≤1 stem neighbor
+- **Water-driven**: Growth only occurs when stem receives water from below
 
 ### Water Dynamics
-- **Multi-directional absorption**: Water soaks into earth from below, left, and right
-- **Root consumption**: Roots can drink water directly (water → air)
+- **4-directional spreading**: Water wets earth in all directions with probabilities:
+  - 80% chance below (gravity-assisted)
+  - 50% chance on sides (lateral spreading)
+  - 20% chance above (capillary action)
+- **Wet earth spreading**: Same probabilities apply when wet earth spreads to dry earth
+- **Root consumption**: Roots have 30% chance to drink water (gives water time to spread)
 - **Plant protection**: Water slides off plant materials instead of destroying them
 - **Vaporization**: Water gradually evaporates, wet earth slowly dries
 
