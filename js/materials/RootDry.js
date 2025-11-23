@@ -127,16 +127,27 @@ export class RootDry extends Material {
       }
     }
 
-    // Spawn new root if conditions are met
-    if (rootNeighborCount < 2 && earthCandidates.length > 0) {
+    // Spawn ONE new root if conditions are met
+    // Allow root to have up to 3 neighbors total (e.g., 1 parent + 2 children)
+    if (rootNeighborCount < 3 && earthCandidates.length > 0) {
       // Filter candidates: ensure new root won't have more than 1 root neighbor
       const validCandidates = earthCandidates.filter(candidate => {
         return this.countRootNeighbors(candidate.x, candidate.y, world) <= 1;
       });
 
       if (validCandidates.length > 0) {
-        // Randomly choose one valid earth cell
-        const chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+        // Smart selection: if we have only 1 neighbor (parent) and 2+ valid spots,
+        // slightly prefer directions that will create branching
+        let chosen;
+        
+        if (rootNeighborCount === 1 && validCandidates.length >= 2) {
+          // This root can branch - pick any valid candidate (they all lead to branching)
+          chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+        } else {
+          // Normal case: just pick a random valid candidate
+          chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+        }
+        
         const newRoot = new RootDry();
         newRoot.spawnCooldown = 30; // Set spawn cooldown for new root
         world.setMaterial(chosen.x, chosen.y, newRoot);

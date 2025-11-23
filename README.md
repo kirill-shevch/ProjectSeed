@@ -7,8 +7,8 @@ A discrete particle simulation where every pixel is a material that follows phys
 ## ✨ Features
 
 - **Real-time physics simulation** - gravity, fluid dynamics, material transformations
-- **Multiple materials**: Air, Water, Earth (dry/wet), Stone, Seeds, Roots, Stems
-- **Plant growth system** - Seeds germinate and grow into complex root and stem networks
+- **Multiple materials**: Air, Water, Earth (dry/wet), Stone, Seeds, Roots, Stems, Leaves
+- **Plant growth system** - Seeds germinate and grow into complex root, stem, and leaf networks
 - **Smart interactions**: Water absorption, vaporization, root water consumption
 - **Advanced plant physics**: Directional stem growth, growth cooldowns, square prevention
 - **Anti-pillar physics**: Particles slide off narrow columns (50% chance) for natural distribution
@@ -29,6 +29,7 @@ A discrete particle simulation where every pixel is a material that follows phys
 - **Семя (Seed)** - Place seeds that grow into plants
 - **Корень (Root)** - Draw root material directly
 - **Стебель (Stem)** - Draw stem material directly
+- **Лист (Leaf)** - Draw leaf material directly
 - **Пауза (Pause)** - Pause/resume simulation
 - **Очистить (Clear)** - Clear the canvas
 
@@ -57,7 +58,9 @@ js/
     ├── RootDry.js            # Absorbs water, spawns roots
     ├── RootWet.js            # Transfers water upward
     ├── StemDry.js            # Receives water from below
-    └── StemWet.js            # Grows with directional momentum
+    ├── StemWet.js            # Grows upward, spawns leaves
+    ├── LeafDry.js            # Waits for water from stem
+    └── LeafWet.js            # Duplicates or transfers water
 ```
 
 **For detailed architecture, design philosophy, and development guidelines, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**
@@ -81,8 +84,10 @@ js/
 | **Seed** | Falls until landing on wet earth, then germinates | Creates stem above + root below on germination |
 | **Root (Dry)** | Searches for water/wet earth in all 4 directions | 30% chance to absorb water → becomes wet, spawns new roots with cooldown (30 ticks), absorption cooldown (30 ticks) |
 | **Root (Wet)** | Transfers water to dry roots/stems | Priority: top (0) > left/right (1, random), becomes dry after transfer |
-| **Stem (Dry)** | Waits for water from below | Receives water from wet root/stem → becomes wet |
-| **Stem (Wet)** | Grows straight upward into air cells | Vertical growth only, creates straight plant stems |
+| **Stem (Dry)** | Waits for water from below, spawns leaves | Receives water → becomes wet, 5% chance to spawn leaf if none attached |
+| **Stem (Wet)** | Distributes water to leaves or grows upward | 40% chance to water adjacent dry leaf, otherwise grows up |
+| **Leaf (Dry)** | Waits for water from stem, generates solar energy | No gravity, stays in place, 0.5% chance to energize connected root |
+| **Leaf (Wet)** | Expands leaf network or transfers water, generates solar energy | Duplicates into air (only touches air/leaves), transfers to dry leaves, or dries out, 0.5% chance to energize connected root |
 
 ## 🌱 Plant Growth System
 
@@ -95,7 +100,9 @@ The plant growth system simulates realistic plant behavior:
 
 ### Root Network
 - **Water absorption**: Dry roots have 30% chance to absorb from wet earth or water cells
-- **Smart expansion**: Roots spawn in earth (left/right/bottom), avoiding squares
+- **Branching expansion**: Roots spawn in earth (left/right/bottom) and can have up to 3 neighbors
+  - Allows 1 parent + 2 children configuration for web-like growth
+  - Still prevents dense squares: new root must have ≤1 root neighbor
 - **Growth cooldown**: 30-tick delay between spawns for natural spreading
 - **Absorption cooldown**: 30-tick delay between water consumption attempts
 - **Water transfer**: Wet roots transfer water upward (priority) or sideways (random)
@@ -105,6 +112,23 @@ The plant growth system simulates realistic plant behavior:
 - **Simple mechanics**: No directional branching, creates straight vertical stalks
 - **Square prevention**: Only grows where it would have ≤1 stem neighbor
 - **Water-driven**: Growth only occurs when stem receives water from below
+- **Leaf spawning**: 5% chance to spawn leaf when receiving water (if no leaves attached)
+
+### Leaf Network
+- **No gravity**: Leaves stay in place, don't fall
+- **Spawning**: Stems spawn leaves horizontally (left/right) with 5% chance in early growth stage
+- **Spawn validation**: New leaf positions validated to only touch air/leaves (plus spawning stem)
+- **Water distribution**: Wet stems have 40% chance to water adjacent dry leaves
+- **Expansion**: Wet leaves duplicate into air cells that only touch air or other leaves
+- **Isolation**: Leaves can't touch stems, roots, earth, water, or stone (only air and other leaves)
+- **Water flow**: Wet leaves transfer water to adjacent dry leaves, or dry out if stuck
+- **Solar energy**: Both dry and wet leaves have 0.5% chance per tick to generate solar energy (1 minute cooldown)
+- **Energy pathway**: Solar energy travels through stem → searches through connected plant → finds valid root → triggers root growth
+- **Smart targeting**: If a root can't duplicate, searches continue through connected roots until finding one that can
+- **Root validation**: Targets roots with <3 neighbors and valid earth cells for spawning
+- **Visual feedback**: Energized leaves flash bright yellow (#FFFF99) for 15 ticks
+- **Root growth**: Solar energy helps roots expand through dry earth to find water sources
+- **Cooldown**: Each leaf has 1-minute (3600 ticks) cooldown after generating solar energy
 
 ### Water Dynamics
 - **4-directional spreading**: Water wets earth in all directions with probabilities:
@@ -201,4 +225,4 @@ Open source - use however you like!
 
 ---
 
-**Краткое описание (Russian)**: Дискретный симулятор частиц с полной системой роста растений. Семена прорастают на влажной земле, корни ищут воду, стебли растут вверх с зигзагообразными узорами. Вода испаряется, земля высыхает, растения взаимодействуют с окружающей средой реалистично.
+**Краткое описание (Russian)**: Дискретный симулятор частиц с полной системой роста растений. Семена прорастают на влажной земле, корни ищут воду, стебли растут вверх и порождают листья. Листья расширяют сеть в воздухе, используя воду для роста. Вода испаряется, земля высыхает, растения взаимодействуют с окружающей средой реалистично.

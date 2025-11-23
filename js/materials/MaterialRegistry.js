@@ -6,6 +6,7 @@ import { Stone } from './Stone.js';
 import { Seed } from './Seed.js';
 import { RootDry } from './RootDry.js';
 import { StemDry } from './StemDry.js';
+import { LeafDry } from './LeafDry.js';
 
 /**
  * MaterialRegistry - factory for creating material instances
@@ -55,6 +56,12 @@ export class MaterialRegistry {
         class: StemDry,
         name: 'Стебель',
         color: '#7cba3d',
+        borderColor: '#0008'
+      },
+      'leaf': {
+        class: LeafDry,
+        name: 'Лист',
+        color: '#90EE90',
         borderColor: '#0008'
       }
     };

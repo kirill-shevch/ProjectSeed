@@ -43,8 +43,10 @@ js/
     ├── Seed.js               # Plant seed (germinates on wet earth)
     ├── RootDry.js            # Dry root (absorbs water, spawns new roots)
     ├── RootWet.js            # Wet root (transfers water upward/sideways)
-    ├── StemDry.js            # Dry stem (receives water from below)
-    └── StemWet.js            # Wet stem (grows with directional momentum)
+    ├── StemDry.js            # Dry stem (receives water from below, spawns leaves)
+    ├── StemWet.js            # Wet stem (grows upward, waters leaves)
+    ├── LeafDry.js            # Dry leaf (waits for water from stem)
+    └── LeafWet.js            # Wet leaf (duplicates or transfers water)
 ```
 
 ### Key Design Patterns
@@ -63,6 +65,8 @@ Material (abstract base)
 ├── RootWet
 ├── StemDry
 ├── StemWet
+├── LeafDry
+├── LeafWet
 └── [Future materials...]
 ```
 
@@ -112,9 +116,10 @@ Each frame for each pixel:
 - **30% chance** to absorb water: wet earth → dry earth, root becomes wet
 - **30% chance** to absorb pure water: water → air, root becomes wet
 - **Absorption cooldown**: 30 ticks between consumption attempts
-- Spawns new roots with smart logic:
+- Spawns new roots with branching logic:
   - Only spawns in earth cells (left, right, bottom - not top)
-  - Prevents squares: new root must have ≤1 root neighbor
+  - Allows up to 3 neighbors (1 parent + 2 children for web-like growth)
+  - New root must have ≤1 root neighbor (prevents dense squares)
   - Cooldown: 30 ticks between spawns
   - Both parent and child start with cooldown
 - Preserves spawn cooldown when becoming wet
@@ -132,10 +137,15 @@ Each frame for each pixel:
 **StemDry:**
 - Waits for water from wet root/stem below
 - Receives water and becomes StemWet
+- **Leaf spawning**: 5% chance to spawn LeafDry on left/right if no leaves attached in 4 cardinal directions
+- **Spawn validation**: New leaf position must only touch air/leaves (plus the spawning stem)
 - Tracks `preferredDirection` for growth momentum
 - Preserves direction when transforming
 
 **StemWet:**
+- **Water distribution priority:**
+  - 40% chance to transfer water to adjacent dry leaf (random selection if multiple)
+  - 60% chance (or no dry leaves) to grow upward
 - **Vertical growth only:**
   - Grows straight upward when water is available
   - No lateral branching or directional momentum
@@ -144,7 +154,61 @@ Each frame for each pixel:
   - Only grows into air cells
   - Prevents squares: new stem must have ≤1 stem neighbor
   - Growth cooldown: 15 ticks between growth
-- Becomes dry after spawning new stem above
+- Becomes dry after spawning new stem above or transferring water to leaf
+
+#### Leaf System (LeafDry + LeafWet)
+
+**LeafDry:**
+- No gravity (stays in place)
+- Waits for water from adjacent wet stem
+- Spawned by StemDry when receiving water (5% chance)
+- Can only be placed horizontally (left/right) from stem
+- Spawn position validated to only touch air/leaves (plus spawning stem)
+- Passive - all water transfer is initiated by StemWet
+- **Solar energy generation**: 0.5% chance per tick to energize connected root (if cooldown ready)
+- **Solar cooldown**: 1 minute (3600 ticks) between energy generations
+- **Visual feedback**: Flashes bright yellow (#FFFF99) for 15 ticks when generating energy
+
+**LeafWet:**
+- **Priority 1**: Try to duplicate into valid air cell
+  - Valid position = air cell that would only touch air or other leaves
+  - Random direction among all valid candidates
+  - Prevents contact with stems, roots, earth, water, stone
+  - Creates isolated leaf canopy in air
+- **Priority 2**: Transfer water to adjacent dry leaf (random if multiple)
+- **Priority 3**: Become dry (water consumed/evaporated if stuck)
+- Growth cooldown: 15 ticks between duplication/transfer
+- No gravity (stays in place throughout)
+- **Solar energy generation**: 0.5% chance per tick to energize connected root (if cooldown ready)
+- **Solar cooldown**: 1 minute (3600 ticks) between energy generations
+- **Visual feedback**: Flashes bright yellow (#FFFF99) for 15 ticks when generating energy
+- **Cooldown preservation**: Solar cooldown is preserved when transforming between dry/wet states
+
+#### Solar Energy System
+
+**How it works:**
+1. Any leaf (dry or wet) has 0.5% chance per tick to generate solar energy (if cooldown ready)
+2. **Cooldown check**: Leaf must have solarCooldown = 0
+3. Leaf finds adjacent stem cell (4 cardinal directions)
+4. Pathfinding searches through connected stems/roots in the plant structure
+5. Finds first valid root that can duplicate:
+   - Root must have spawnCooldown = 0
+   - Root must have <3 neighbors (allows branching)
+   - Root must have valid earth neighbor for spawning
+   - If root can't duplicate, search continues through connected roots
+6. Triggers root growth (spawns new root, one cell at a time)
+   - Root spawns new root cell if conditions are met
+   - Helps roots expand through dry earth to find water
+7. **Cooldown set**: Leaf's solarCooldown set to 3600 ticks (1 minute)
+8. **Cooldown preserved**: Solar cooldown preserved when leaf transforms (dry ↔ wet)
+
+**Purpose:**
+- Solves problem when roots run out of nearby water but water exists far away
+- Leaves provide alternative energy source for root expansion
+- Allows plants to "search" for water sources in dry earth
+- Creates emergent behavior: well-leafed plants grow roots faster
+- **Balanced rate**: 1-minute cooldown prevents excessive root growth from solar energy
+- **Smart targeting**: Energy finds roots that can actually grow, not stuck ones
 
 ### Physics Systems
 
@@ -161,14 +225,21 @@ Each frame for each pixel:
 - **Stem growth**: 15 ticks between growth cycles
 - Cooldowns preserved across transformations (dry ↔ wet)
 
-#### Square Prevention Algorithm
-Both roots and stems use neighbor counting:
+#### Square Prevention & Branching Algorithm
+Roots and stems use neighbor counting for organic growth:
 ```javascript
-countNeighbors(x, y, world) {
-  // Check all 4 directions
-  // Count how many neighbors of same type
-  // Only allow spawn if count ≤ 1
-  // Prevents closed loops and thick growth
+// Roots: Allow up to 3 neighbors (1 parent + 2 children)
+if (rootNeighborCount < 3 && earthCandidates.length > 0) {
+  // New root must have ≤1 neighbor (prevents squares)
+  const validCandidates = earthCandidates.filter(candidate => {
+    return this.countRootNeighbors(candidate.x, candidate.y, world) <= 1;
+  });
+  // Spawn one cell at a time
+}
+
+// Stems: Still use ≤1 neighbor rule (vertical growth only)
+if (stemNeighborCount <= 1) {
+  // Spawn new stem (prevents branching for now)
 }
 ```
 
@@ -183,9 +254,13 @@ countNeighbors(x, y, world) {
 3. RootDry finds wet earth/water
 4. RootDry → RootWet, spawns new RootDry (if cooldown ready)
 5. RootWet transfers water upward to StemDry
-6. StemDry → StemWet
-7. StemWet grows new StemDry in weighted direction
-8. Pattern repeats, creating branching plant structure
+6. StemDry → StemWet (5% chance to spawn LeafDry on side if no leaves)
+7. StemWet either:
+   a) 40% chance: waters adjacent LeafDry → LeafWet
+   b) 60% chance: grows new StemDry upward
+8. LeafWet duplicates into air (only touching air/leaves) or transfers to dry leaf
+9. Leaves (both dry/wet) generate solar energy (0.5% chance) → triggers root growth
+10. Pattern repeats, creating vertical stem with expanding leaf canopy and active root network
 ```
 
 ### Water Flow Through Plant
@@ -194,19 +269,38 @@ Wet Earth/Water → RootDry (absorb)
                      ↓
                  RootWet (transfer up)
                      ↓
-                 StemDry (receive)
+                 StemDry (receive, maybe spawn leaf)
                      ↓
-                 StemWet (grow)
+                 StemWet (choose: water leaf OR grow up)
+                     ↓              ↓
+                 LeafWet      New StemDry (continues)
                      ↓
-              New StemDry (continues)
+            (duplicate or transfer)
+                     ↓
+                 LeafDry (or new LeafDry)
 ```
 
-### Vertical Stem Growth Example
+### Plant Growth Example
 ```
-Initial stem grows up → spawns up
-New stem grows up → spawns up
-Continues upward → creates straight vertical stalk
-Simple, predictable vertical growth pattern
+Vertical Growth:
+  Initial stem grows up → spawns up
+  New stem grows up → spawns up
+  Creates straight vertical stalk
+
+Leaf Expansion:
+  Stem receives water → 5% spawn leaf on side (validated position)
+  Stem becomes wet → 40% water the leaf
+  Leaf becomes wet → duplicates into air (only touching air/leaves)
+  Leaf network expands horizontally in air
+  Leaves maintain isolation from ground/stems
+
+Solar Energy Cycle:
+  Leaf generates energy (0.5% chance) → flashes yellow
+  Energy pathfinding → finds adjacent stem
+  Searches through stems/roots → finds valid root that can spawn
+  If root blocked (too many neighbors or no earth), continues searching
+  Valid root grows (spawns one new cell) → helps find distant water
+  Root network expands through dry earth with solar assistance
 ```
 
 ## 🤖 AI Assistant Guidelines
@@ -327,16 +421,26 @@ for (const candidate of candidates) {
 - **Clarity**: Clear visual representation of water flow
 - **Performance**: Simpler logic, faster updates
 
-### Why Square Prevention?
-- **Organic look**: Thin branches feel more plant-like
-- **Performance**: Prevents solid mass of plant material
-- **Gameplay**: Roots/stems spread farther
-- **Visual clarity**: Easier to see plant structure
+### Why Leaves?
+- **Water consumption solution**: When roots run out of nearby water but water exists elsewhere, leaves provide alternative water usage
+- **Solar energy for root growth**: Leaves help roots expand through dry earth to find distant water sources
+- **Visual feedback**: Shows which plants have been well-watered in early growth, energy flashes show active plants
+- **Emergent complexity**: Creates interesting canopy formations expanding into air
+- **Isolation mechanic**: Leaves can only touch air/leaves, creating distinct plant zones
+- **Gameplay depth**: Players must balance watering for root growth vs leaf expansion
+- **Self-sustaining growth**: Well-leafed plants can grow roots even when water is distant
+
+### Why Square Prevention & Branching?
+- **Organic look**: Thin branches with branching points feel more plant-like
+- **Performance**: Prevents solid mass of plant material while allowing web structure
+- **Gameplay**: Roots spread farther and create interconnected networks
+- **Visual clarity**: Easier to see plant structure and growth patterns
+- **Branching roots**: Allows 1 parent + 2 children (3 neighbors max) for realistic root webs
+- **Linear stems**: Keeps vertical growth simple and predictable
 
 ## 🎯 Future Roadmap
 
 ### Phase 1: Enhanced Plant System (Next)
-- **Leaves** → sprout from stems, different color
 - **Flowers** → grow from mature stems, produce seeds
 - **Fruit** → contains seeds, can be harvested
 - **Death mechanics** → plants decay without water
@@ -425,8 +529,9 @@ When adding features:
 **Система роста растений:**
 - Семена прорастают на влажной земле
 - Корни ищут воду с 30% вероятностью поглощения, растут с задержкой
-- Стебли растут прямо вверх (вертикально)
-- Вода течёт через корни к стеблям
+- Стебли растут прямо вверх (вертикально) и порождают листья (5% шанс)
+- Листья расширяются в воздухе, используя воду, изолированы от стеблей/земли
+- Вода течёт через корни к стеблям, затем к листьям (40% шанс) или вверх (60%)
 - Вода распространяется во все 4 направления (80% вниз, 50% в стороны, 20% вверх)
 - Предотвращение квадратов для органичного роста
 
