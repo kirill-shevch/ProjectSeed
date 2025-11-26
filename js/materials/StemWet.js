@@ -28,6 +28,41 @@ export class StemWet extends Material {
       return true;
     }
 
+    // ABSOLUTE PRIORITY: Water blooms first (100% - always!)
+    // Check for adjacent blooms
+    const bloomCandidates = this.findAdjacentBlooms(x, y, world);
+
+    if (bloomCandidates.length > 0) {
+      // Bloom is RIGHT NEXT to us - water it!
+      const chosen = bloomCandidates[Math.floor(Math.random() * bloomCandidates.length)];
+      const bloomPixel = world.getPixel(chosen.x, chosen.y);
+
+      // Increment bloom's water counter
+      bloomPixel.material.waterCounter++;
+
+      console.log(`Watering bloom at (${chosen.x}, ${chosen.y}), counter now: ${bloomPixel.material.waterCounter}`);
+
+      // This stem becomes dry
+      const newStemDry = new StemDry(this.preferredDirection);
+      newStemDry.cooldown = 15;
+      world.setMaterial(x, y, newStemDry);
+
+      return true;
+    }
+
+    // Check if there's a bloom nearby (but not adjacent) - if yes, DON'T grow or water leaves
+    const nearbyBloom = this.findNearbyBloom(x, y, world);
+    if (nearbyBloom) {
+      console.log(`Stem at (${x}, ${y}) sees bloom at (${nearbyBloom.x}, ${nearbyBloom.y}) but NOT adjacent - waiting`);
+      // There's a bloom somewhere nearby, become dry and wait
+      // The adjacent stem will water it
+      const newStemDry = new StemDry(this.preferredDirection);
+      newStemDry.cooldown = 15;
+      world.setMaterial(x, y, newStemDry);
+      return true;
+    }
+
+    // No bloom nearby - continue normal behavior
     // Check if we should transfer water to a dry leaf (40% chance)
     const leafTransfer = this.tryTransferToLeaf(x, y, world);
     if (leafTransfer) {
@@ -68,10 +103,38 @@ export class StemWet extends Material {
   }
 
   /**
-   * Try to transfer water to an adjacent dry leaf or bloom (40% chance)
+   * Find adjacent blooms (4 cardinal directions)
+   */
+  findAdjacentBlooms(x, y, world) {
+    const directions = [
+      { x: x, y: y - 1 },      // up
+      { x: x, y: y + 1 },      // down
+      { x: x - 1, y: y },      // left
+      { x: x + 1, y: y }       // right
+    ];
+
+    const bloomCandidates = [];
+
+    for (const dir of directions) {
+      if (dir.x < 0 || dir.x >= world.width ||
+          dir.y < 0 || dir.y >= world.height) {
+        continue;
+      }
+
+      const pixel = world.getPixel(dir.x, dir.y);
+      if (pixel.material instanceof Bloom) {
+        bloomCandidates.push(dir);
+      }
+    }
+
+    return bloomCandidates;
+  }
+
+  /**
+   * Try to transfer water to an adjacent dry leaf (40% chance)
    */
   tryTransferToLeaf(x, y, world) {
-    // Check all 4 directions for dry leaves and blooms
+    // Check all 4 directions for dry leaves
     const directions = [
       { x: x, y: y - 1 },      // up
       { x: x, y: y + 1 },      // down
@@ -80,7 +143,6 @@ export class StemWet extends Material {
     ];
 
     const dryLeafCandidates = [];
-    const bloomCandidates = [];
 
     for (const dir of directions) {
       if (dir.x < 0 || dir.x >= world.width ||
@@ -92,26 +154,6 @@ export class StemWet extends Material {
       if (pixel.material instanceof LeafDry) {
         dryLeafCandidates.push(dir);
       }
-      if (pixel.material instanceof Bloom) {
-        bloomCandidates.push(dir);
-      }
-    }
-
-    // If there are blooms, water them (same 40% chance)
-    if (bloomCandidates.length > 0 && Math.random() < 0.4) {
-      // Randomly choose one bloom
-      const chosen = bloomCandidates[Math.floor(Math.random() * bloomCandidates.length)];
-      const bloomPixel = world.getPixel(chosen.x, chosen.y);
-
-      // Increment bloom's water counter
-      bloomPixel.material.waterCounter++;
-
-      // This stem becomes dry
-      const newStemDry = new StemDry(this.preferredDirection);
-      newStemDry.cooldown = 15;
-      world.setMaterial(x, y, newStemDry);
-
-      return true;
     }
 
     // If there are dry leaves and 40% chance succeeds
@@ -165,6 +207,37 @@ export class StemWet extends Material {
   }
 
   /**
+   * Find bloom nearby (within 3 cells radius) but NOT adjacent
+   * Returns bloom position or null
+   */
+  findNearbyBloom(x, y, world) {
+    // Check a 7x7 area around this stem (3 cells in each direction)
+    const radius = 3;
+
+    for (let checkY = y - radius; checkY <= y + radius; checkY++) {
+      for (let checkX = x - radius; checkX <= x + radius; checkX++) {
+        if (checkX < 0 || checkX >= world.width ||
+            checkY < 0 || checkY >= world.height) {
+          continue;
+        }
+
+        // Skip if this is adjacent (already checked)
+        if (Math.abs(checkX - x) <= 1 && Math.abs(checkY - y) <= 1 &&
+            (checkX !== x || checkY !== y)) {
+          continue;
+        }
+
+        const pixel = world.getPixel(checkX, checkY);
+        if (pixel && pixel.material instanceof Bloom) {
+          return { x: checkX, y: checkY }; // Found a bloom nearby!
+        }
+      }
+    }
+
+    return null; // No bloom nearby
+  }
+
+  /**
    * Try to spawn a bloom on the side if stem is 12+ pixels tall
    */
   trySpawnBloom(x, y, world) {
@@ -183,8 +256,8 @@ export class StemWet extends Material {
       }
     }
 
-    // If height >= 12 and 20% chance
-    if (height >= 12 && Math.random() < 0.2) {
+    // If height >= 12 and 1% chance
+    if (height >= 12 && Math.random() < 0.01) {
       // Try to spawn bloom on left or right
       const directions = [
         { x: x - 1, y: y }, // left

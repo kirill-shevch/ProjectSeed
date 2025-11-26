@@ -43,7 +43,14 @@ export class Cloud extends Material {
     // Reset cooldown for next attempt
     this.duplicationCooldown = 20;
 
-    // Try to duplicate
+    // Only try to duplicate/disappear if chance is above 0
+    if (this.duplicationChance <= 0) {
+      // Cloud has exhausted its duplication potential - disappear
+      world.setMaterial(x, y, new Air());
+      return true;
+    }
+
+    // Always try to duplicate (very high success rate)
     const roll = Math.random() * 100;
 
     if (roll < this.duplicationChance) {
@@ -64,21 +71,19 @@ export class Cloud extends Material {
         const targetPixel = world.getPixel(target.x, target.y);
 
         if (targetPixel && targetPixel.material instanceof Air) {
-          // Spawn new cloud with reduced chance
-          const newCloud = new Cloud(this.duplicationChance - 3);
+          // Spawn new cloud with reduced chance (only 0.5% reduction)
+          const newCloud = new Cloud(this.duplicationChance - 0.5);
           world.setMaterial(target.x, target.y, newCloud);
 
-          // This cloud also loses 3%
-          this.duplicationChance -= 3;
+          // This cloud also loses 0.5% (much slower decay)
+          this.duplicationChance -= 0.5;
           return true;
         }
       }
-    } else {
-      // Failed duplication - cloud disappears
-      world.setMaterial(x, y, new Air());
-      return true;
     }
 
+    // If duplication failed or no space available, just wait for next cycle
+    // Don't disappear unless chance reaches 0
     return false;
   }
 

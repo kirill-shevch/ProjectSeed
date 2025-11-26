@@ -30,15 +30,14 @@ export class WaterSource extends Material {
     const belowPixel = world.getPixel(x, yBelow);
     if (!belowPixel) return false;
 
-    // Only spawn if below is Air
-    if (belowPixel.material instanceof Air) {
+    // Spawn water if below is Air OR Water (to counteract vaporization)
+    if (belowPixel.material instanceof Air || belowPixel.material instanceof Water) {
       world.setMaterial(x, yBelow, new Water());
-      this.spawnCooldown = 4;
+      this.spawnCooldown = 16; // 4 times slower (was 4, now 16)
       return true;
     }
 
-    // If below is Water, we're done (water already there)
-    // If below is anything else (stone, earth, etc.), don't spawn
+    // If below is stone, earth, etc., don't spawn
     return false;
   }
 }

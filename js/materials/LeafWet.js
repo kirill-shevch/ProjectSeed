@@ -2,6 +2,7 @@ import { Material } from './Material.js';
 import { Air } from './Air.js';
 import { LeafDry } from './LeafDry.js';
 import { RootWet } from './RootWet.js';
+import { Bloom } from './Bloom.js';
 
 /**
  * Wet Leaf material - tries to duplicate or transfer water, generates solar energy
@@ -42,6 +43,18 @@ export class LeafWet extends Material {
         this.energyCounter = 15; // Visual effect for 15 ticks
         this.solarCooldown = 3600; // 1 minute cooldown (60 ticks/sec * 60 sec)
       }
+    }
+
+    // Check if there's a bloom nearby - if yes, DON'T duplicate or expand
+    // All resources go to bloom until it's fully watered
+    if (this.hasBloomNearby(x, y, world)) {
+      // There's a bloom somewhere nearby, just become dry and wait
+      // Don't duplicate, don't transfer - let water go to bloom
+      const newLeafDry = new LeafDry();
+      newLeafDry.cooldown = 15;
+      newLeafDry.solarCooldown = this.solarCooldown; // Preserve solar cooldown
+      world.setMaterial(x, y, newLeafDry);
+      return true;
     }
 
     // Priority 1: Try to duplicate into valid air cell
@@ -390,5 +403,30 @@ export class LeafWet extends Material {
       // DO NOT transform to wet root - solar energy doesn't provide water!
       // This way roots expand to search for water, but don't feed the plant
     }
+  }
+
+  /**
+   * Check if there's a bloom nearby (within 5 cells radius)
+   * If bloom exists, leaves should not expand - all resources go to bloom
+   */
+  hasBloomNearby(x, y, world) {
+    // Check a 11x11 area around this leaf (5 cells in each direction)
+    const radius = 5;
+
+    for (let checkY = y - radius; checkY <= y + radius; checkY++) {
+      for (let checkX = x - radius; checkX <= x + radius; checkX++) {
+        if (checkX < 0 || checkX >= world.width ||
+            checkY < 0 || checkY >= world.height) {
+          continue;
+        }
+
+        const pixel = world.getPixel(checkX, checkY);
+        if (pixel && pixel.material instanceof Bloom) {
+          return true; // Found a bloom nearby!
+        }
+      }
+    }
+
+    return false; // No bloom nearby
   }
 }

@@ -18,8 +18,14 @@ export class Bloom extends Material {
   }
 
   update(x, y, world) {
+    // Log bloom status periodically
+    if (Math.random() < 0.01) { // 1% chance to log (not every frame)
+      console.log(`Bloom at (${x}, ${y}) has waterCounter: ${this.waterCounter}/12`);
+    }
+
     // Check if we've accumulated enough water
     if (this.waterCounter >= 12) {
+      console.log(`Bloom at (${x}, ${y}) BLOOMING! Counter reached 12`);
       this.spawnFlower(x, y, world);
       return true;
     }
@@ -40,8 +46,15 @@ export class Bloom extends Material {
     const stemOnRight = rightPixel && (rightPixel.material.name === 'StemDry' || rightPixel.material.name === 'StemWet');
 
     // Determine spawn direction (away from stem)
-    // If stem on left, go right (direction = 1), if stem on right, go left (direction = -1)
-    const direction = stemOnLeft ? 1 : -1;
+    let direction;
+    if (stemOnLeft) {
+      direction = 1; // Stem on left, grow right
+    } else if (stemOnRight) {
+      direction = -1; // Stem on right, grow left
+    } else {
+      // No stem found (manually placed bloom), choose random direction
+      direction = Math.random() < 0.5 ? 1 : -1;
+    }
 
     // Generate flower pattern positions
     const pattern = this.generateFlowerPattern(x, y, direction);
@@ -78,27 +91,30 @@ export class Bloom extends Material {
     // Step 3: move pointer
     pointerX += direction;
 
-    // Step 4: vertical line (2 above, 2 below)
+    // Step 4: vertical line (2 above, CENTER, 2 below)
     positions.push({ x: pointerX, y: pointerY - 2 });
     positions.push({ x: pointerX, y: pointerY - 1 });
+    positions.push({ x: pointerX, y: pointerY });     // CENTER!
     positions.push({ x: pointerX, y: pointerY + 1 });
     positions.push({ x: pointerX, y: pointerY + 2 });
 
     // Step 5: move pointer
     pointerX += direction;
 
-    // Step 6: vertical line (2 above, 2 below)
+    // Step 6: vertical line (2 above, CENTER, 2 below)
     positions.push({ x: pointerX, y: pointerY - 2 });
     positions.push({ x: pointerX, y: pointerY - 1 });
+    positions.push({ x: pointerX, y: pointerY });     // CENTER!
     positions.push({ x: pointerX, y: pointerY + 1 });
     positions.push({ x: pointerX, y: pointerY + 2 });
 
     // Step 7: move pointer
     pointerX += direction;
 
-    // Step 8: vertical line (2 above, 2 below)
+    // Step 8: vertical line (2 above, CENTER, 2 below)
     positions.push({ x: pointerX, y: pointerY - 2 });
     positions.push({ x: pointerX, y: pointerY - 1 });
+    positions.push({ x: pointerX, y: pointerY });     // CENTER!
     positions.push({ x: pointerX, y: pointerY + 1 });
     positions.push({ x: pointerX, y: pointerY + 2 });
 
