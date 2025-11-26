@@ -50,12 +50,35 @@ export class StemWet extends Material {
       return true;
     }
 
-    // Check if there's a bloom nearby (but not adjacent) - if yes, DON'T grow or water leaves
+    // Check if there's a bloom nearby (but not adjacent) - if yes, pass water UP only
     const nearbyBloom = this.findNearbyBloom(x, y, world);
     if (nearbyBloom) {
-      console.log(`Stem at (${x}, ${y}) sees bloom at (${nearbyBloom.x}, ${nearbyBloom.y}) but NOT adjacent - waiting`);
-      // There's a bloom somewhere nearby, become dry and wait
-      // The adjacent stem will water it
+      console.log(`Stem at (${x}, ${y}) sees bloom at (${nearbyBloom.x}, ${nearbyBloom.y}) - passing water UP`);
+      // There's a bloom somewhere nearby
+      // DON'T water leaves, DON'T grow - ONLY pass water upward
+      // This ensures water reaches the stem adjacent to the bloom
+
+      const upY = y - 1;
+      if (upY >= 0) {
+        const upPixel = world.getPixel(x, upY);
+
+        // If there's a dry stem above, transfer water to it
+        if (upPixel && upPixel.material.name === 'StemDry') {
+          // This stem becomes dry
+          const newStemDry = new StemDry(this.preferredDirection);
+          newStemDry.cooldown = 15;
+          world.setMaterial(x, y, newStemDry);
+
+          // Stem above becomes wet
+          const newStemWet = new StemWet(this.preferredDirection);
+          newStemWet.cooldown = 15;
+          world.setMaterial(x, upY, newStemWet);
+
+          return true;
+        }
+      }
+
+      // If can't pass water up, become dry
       const newStemDry = new StemDry(this.preferredDirection);
       newStemDry.cooldown = 15;
       world.setMaterial(x, y, newStemDry);
