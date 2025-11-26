@@ -1,5 +1,21 @@
 import { Pixel } from './Pixel.js';
 import { Air } from '../materials/Air.js';
+import { Water } from '../materials/Water.js';
+import { EarthDry } from '../materials/EarthDry.js';
+import { EarthWet } from '../materials/EarthWet.js';
+import { Stone } from '../materials/Stone.js';
+import { Seed } from '../materials/Seed.js';
+import { RootDry } from '../materials/RootDry.js';
+import { RootWet } from '../materials/RootWet.js';
+import { StemDry } from '../materials/StemDry.js';
+import { StemWet } from '../materials/StemWet.js';
+import { LeafDry } from '../materials/LeafDry.js';
+import { LeafWet } from '../materials/LeafWet.js';
+import { Badrock } from '../materials/Badrock.js';
+import { WaterSource } from '../materials/WaterSource.js';
+import { Cloud } from '../materials/Cloud.js';
+import { Bloom } from '../materials/Bloom.js';
+import { Flower } from '../materials/Flower.js';
 
 /**
  * PixelWorld - manages the 2D grid of pixels
@@ -90,6 +106,135 @@ export class PixelWorld {
         const pixel = this.grid[y][x];
         pixel.update(x, y, this);
       }
+    }
+  }
+
+  /**
+   * Serialize the world to JSON for saving
+   */
+  serialize() {
+    const pixels = [];
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const pixel = this.grid[y][x];
+        const material = pixel.material;
+
+        // Skip air pixels to save space
+        if (material.name === 'Air') continue;
+
+        // Serialize material state
+        const state = {};
+
+        // Copy all custom properties (cooldowns, counters, etc.)
+        for (const key in material) {
+          if (key !== 'name' && key !== 'color' && key !== 'density' &&
+              material.hasOwnProperty(key)) {
+            state[key] = material[key];
+          }
+        }
+
+        pixels.push({
+          x: x,
+          y: y,
+          material: material.name,
+          state: state
+        });
+      }
+    }
+
+    return {
+      version: '1.0',
+      width: this.width,
+      height: this.height,
+      pixels: pixels
+    };
+  }
+
+  /**
+   * Deserialize the world from JSON for loading
+   */
+  deserialize(data) {
+    // Validate version
+    if (data.version !== '1.0') {
+      throw new Error('Incompatible save file version');
+    }
+
+    // Validate dimensions
+    if (data.width !== this.width || data.height !== this.height) {
+      throw new Error('Save file dimensions do not match world dimensions');
+    }
+
+    // Clear the world
+    this.clear();
+
+    // Restore pixels
+    for (const pixelData of data.pixels) {
+      const { x, y, material: materialName, state } = pixelData;
+
+      // Create material instance
+      let material;
+
+      // Handle materials by name
+      switch (materialName) {
+        case 'Water':
+          material = new Water();
+          break;
+        case 'EarthDry':
+          material = new EarthDry();
+          break;
+        case 'EarthWet':
+          material = new EarthWet();
+          break;
+        case 'Stone':
+          material = new Stone();
+          break;
+        case 'Seed':
+          material = new Seed();
+          break;
+        case 'RootDry':
+          material = new RootDry();
+          break;
+        case 'RootWet':
+          material = new RootWet();
+          break;
+        case 'StemDry':
+          material = new StemDry();
+          break;
+        case 'StemWet':
+          material = new StemWet();
+          break;
+        case 'LeafDry':
+          material = new LeafDry();
+          break;
+        case 'LeafWet':
+          material = new LeafWet();
+          break;
+        case 'Badrock':
+          material = new Badrock();
+          break;
+        case 'WaterSource':
+          material = new WaterSource();
+          break;
+        case 'Cloud':
+          material = new Cloud();
+          break;
+        case 'Bloom':
+          material = new Bloom();
+          break;
+        case 'Flower':
+          material = new Flower();
+          break;
+        default:
+          console.warn(`Unknown material: ${materialName}`);
+          continue;
+      }
+
+      // Restore state
+      Object.assign(material, state);
+
+      // Set material
+      this.setMaterial(x, y, material);
     }
   }
 }

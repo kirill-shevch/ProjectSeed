@@ -3,6 +3,7 @@ import { Air } from './Air.js';
 import { StemDry } from './StemDry.js';
 import { LeafDry } from './LeafDry.js';
 import { LeafWet } from './LeafWet.js';
+import { Bloom } from './Bloom.js';
 
 /**
  * Wet Stem material - grows upward by spawning new stem cells
@@ -19,6 +20,12 @@ export class StemWet extends Material {
     if (this.cooldown > 0) {
       this.cooldown--;
       return false;
+    }
+
+    // Try to spawn bloom if stem is tall enough (20% chance)
+    const bloomSpawned = this.trySpawnBloom(x, y, world);
+    if (bloomSpawned) {
+      return true;
     }
 
     // Check if we should transfer water to a dry leaf (40% chance)
@@ -61,10 +68,10 @@ export class StemWet extends Material {
   }
 
   /**
-   * Try to transfer water to an adjacent dry leaf (40% chance)
+   * Try to transfer water to an adjacent dry leaf or bloom (40% chance)
    */
   tryTransferToLeaf(x, y, world) {
-    // Check all 4 directions for dry leaves
+    // Check all 4 directions for dry leaves and blooms
     const directions = [
       { x: x, y: y - 1 },      // up
       { x: x, y: y + 1 },      // down
@@ -73,6 +80,7 @@ export class StemWet extends Material {
     ];
 
     const dryLeafCandidates = [];
+    const bloomCandidates = [];
 
     for (const dir of directions) {
       if (dir.x < 0 || dir.x >= world.width ||
@@ -84,6 +92,26 @@ export class StemWet extends Material {
       if (pixel.material instanceof LeafDry) {
         dryLeafCandidates.push(dir);
       }
+      if (pixel.material instanceof Bloom) {
+        bloomCandidates.push(dir);
+      }
+    }
+
+    // If there are blooms, water them (same 40% chance)
+    if (bloomCandidates.length > 0 && Math.random() < 0.4) {
+      // Randomly choose one bloom
+      const chosen = bloomCandidates[Math.floor(Math.random() * bloomCandidates.length)];
+      const bloomPixel = world.getPixel(chosen.x, chosen.y);
+
+      // Increment bloom's water counter
+      bloomPixel.material.waterCounter++;
+
+      // This stem becomes dry
+      const newStemDry = new StemDry(this.preferredDirection);
+      newStemDry.cooldown = 15;
+      world.setMaterial(x, y, newStemDry);
+
+      return true;
     }
 
     // If there are dry leaves and 40% chance succeeds
@@ -134,5 +162,59 @@ export class StemWet extends Material {
     }
 
     return count;
+  }
+
+  /**
+   * Try to spawn a bloom on the side if stem is 12+ pixels tall
+   */
+  trySpawnBloom(x, y, world) {
+    // Measure stem height by counting stem pixels downward
+    let height = 0;
+    let checkY = y;
+
+    while (checkY < world.height) {
+      const pixel = world.getPixel(x, checkY);
+      if (pixel && (pixel.material.name === 'StemDry' ||
+                     pixel.material.name === 'StemWet')) {
+        height++;
+        checkY++;
+      } else {
+        break;
+      }
+    }
+
+    // If height >= 12 and 20% chance
+    if (height >= 12 && Math.random() < 0.2) {
+      // Try to spawn bloom on left or right
+      const directions = [
+        { x: x - 1, y: y }, // left
+        { x: x + 1, y: y }  // right
+      ];
+
+      const validCandidates = [];
+
+      for (const dir of directions) {
+        if (dir.x >= 0 && dir.x < world.width) {
+          const pixel = world.getPixel(dir.x, dir.y);
+          if (pixel && pixel.material instanceof Air) {
+            validCandidates.push(dir);
+          }
+        }
+      }
+
+      if (validCandidates.length > 0) {
+        const chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+        world.setMaterial(chosen.x, chosen.y, new Bloom());
+
+        // This stem becomes dry after spawning bloom
+        const newStemDry = new StemDry(this.preferredDirection);
+        newStemDry.cooldown = 15;
+        world.setMaterial(x, y, newStemDry);
+
+        return true;
+      }
+    }
+
+    return false;
   }
 }

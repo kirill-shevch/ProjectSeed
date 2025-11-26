@@ -7,6 +7,11 @@ import { Seed } from './Seed.js';
 import { RootDry } from './RootDry.js';
 import { StemDry } from './StemDry.js';
 import { LeafDry } from './LeafDry.js';
+import { Badrock } from './Badrock.js';
+import { WaterSource } from './WaterSource.js';
+import { Cloud } from './Cloud.js';
+import { Bloom } from './Bloom.js';
+import { Flower } from './Flower.js';
 
 /**
  * MaterialRegistry - factory for creating material instances
@@ -62,6 +67,30 @@ export class MaterialRegistry {
         class: LeafDry,
         name: 'Лист',
         color: '#90EE90',
+        borderColor: '#0008'
+      },
+      'badrock': {
+        class: Badrock,
+        name: 'Платформа',
+        color: '#222222',
+        borderColor: '#0008'
+      },
+      'watersource': {
+        class: WaterSource,
+        name: 'Источник воды',
+        color: '#3fa9f5',
+        borderColor: '#0008'
+      },
+      'cloud': {
+        class: Cloud,
+        name: 'Облако',
+        color: '#CCCCCC',
+        borderColor: '#0008'
+      },
+      'bloom': {
+        class: Bloom,
+        name: 'Бутон',
+        color: '#FF69B4',
         borderColor: '#0008'
       }
     };

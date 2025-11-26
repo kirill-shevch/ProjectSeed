@@ -160,6 +160,44 @@
     });
     controlsDiv.appendChild(clearBtn);
 
+    // Save button
+    const saveBtn = document.createElement('button');
+    saveBtn.id = 'save';
+    saveBtn.textContent = 'Сохранить';
+    saveBtn.addEventListener('click', () => {
+      try {
+        const data = world.serialize();
+        localStorage.setItem('pixelPhysics_saveData', JSON.stringify(data));
+        alert('Мир сохранён!');
+      } catch (error) {
+        alert('Ошибка сохранения: ' + error.message);
+        console.error(error);
+      }
+    });
+    controlsDiv.appendChild(saveBtn);
+
+    // Load button
+    const loadBtn = document.createElement('button');
+    loadBtn.id = 'load';
+    loadBtn.textContent = 'Загрузить';
+    loadBtn.addEventListener('click', () => {
+      try {
+        const savedData = localStorage.getItem('pixelPhysics_saveData');
+        if (!savedData) {
+          alert('Нет сохранённых данных');
+          return;
+        }
+
+        const data = JSON.parse(savedData);
+        world.deserialize(data);
+        alert('Мир загружен!');
+      } catch (error) {
+        alert('Ошибка загрузки: ' + error.message);
+        console.error(error);
+      }
+    });
+    controlsDiv.appendChild(loadBtn);
+
     // Mouse painting functionality
     let isMouseDown = false;
 
