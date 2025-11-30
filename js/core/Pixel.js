@@ -20,10 +20,12 @@ export class Pixel {
 
   /**
    * Get the color for rendering
+   * @param {number} x - X coordinate (optional, for position-based coloring)
+   * @param {number} y - Y coordinate (optional, for position-based coloring)
    * @returns {string} - Hex color
    */
-  getColor() {
-    return this.material.getColor();
+  getColor(x, y) {
+    return this.material.getColor(x, y);
   }
 }
 

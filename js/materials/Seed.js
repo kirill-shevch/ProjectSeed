@@ -11,8 +11,11 @@ import { LeafWet } from './LeafWet.js';
  * Seed material - falls and germinates on wet earth
  */
 export class Seed extends Material {
-  constructor() {
+  constructor(useDiagonalFalling = false) {
     super('Seed', '#9b7653', 3);
+    this.useDiagonalFalling = useDiagonalFalling;
+    // Choose diagonal direction: 50% left, 50% right (only used if useDiagonalFalling is true)
+    this.diagonalDirection = Math.random() < 0.5 ? -1 : 1;
   }
 
   hasGravity() {
@@ -27,7 +30,38 @@ export class Seed extends Material {
       const belowPixel = world.getPixel(x, yBelow);
       const belowMaterial = belowPixel.material;
 
-      // Fall through air
+      // Only use diagonal falling if enabled (seeds from flowers)
+      if (this.useDiagonalFalling) {
+        // 33% chance to move diagonally, 67% chance to fall straight
+        const shouldMoveDiagonal = Math.random() < 0.33;
+
+        if (shouldMoveDiagonal) {
+          // Try to move diagonally
+          const targetX = x + this.diagonalDirection;
+          const targetY = yBelow;
+
+          if (targetX >= 0 && targetX < world.width) {
+            const diagonalPixel = world.getPixel(targetX, targetY);
+            const diagonalMaterial = diagonalPixel.material;
+
+            if (diagonalMaterial instanceof Air || diagonalMaterial instanceof Water) {
+              // Can move diagonally
+              world.swapPixels(x, y, targetX, targetY);
+              return true;
+            } else {
+              // Blocked diagonally - flip direction
+              this.diagonalDirection = -this.diagonalDirection;
+              // Fall straight down instead
+            }
+          } else {
+            // Out of bounds - flip direction
+            this.diagonalDirection = -this.diagonalDirection;
+            // Fall straight down instead
+          }
+        }
+      }
+
+      // Fall straight down (either by choice or fallback from blocked diagonal)
       if (belowMaterial instanceof Air) {
         world.swapPixels(x, y, x, yBelow);
         return true;

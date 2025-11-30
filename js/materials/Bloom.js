@@ -18,14 +18,8 @@ export class Bloom extends Material {
   }
 
   update(x, y, world) {
-    // Log bloom status periodically
-    if (Math.random() < 0.01) { // 1% chance to log (not every frame)
-      console.log(`Bloom at (${x}, ${y}) has waterCounter: ${this.waterCounter}/12`);
-    }
-
     // Check if we've accumulated enough water
     if (this.waterCounter >= 12) {
-      console.log(`Bloom at (${x}, ${y}) BLOOMING! Counter reached 12`);
       this.spawnFlower(x, y, world);
       return true;
     }
@@ -59,18 +53,18 @@ export class Bloom extends Material {
     // Generate flower pattern positions
     const pattern = this.generateFlowerPattern(x, y, direction);
 
-    // Spawn flower pixels at valid positions
+    // Spawn flower pixels at valid positions (pass center coordinates for gradient)
     for (const pos of pattern) {
       const pixel = world.getPixel(pos.x, pos.y);
       if (pixel && (pixel.material instanceof Air ||
                      pixel.material instanceof LeafDry ||
                      pixel.material instanceof LeafWet)) {
-        world.setMaterial(pos.x, pos.y, new Flower());
+        world.setMaterial(pos.x, pos.y, new Flower(x, y));
       }
     }
 
-    // Transform bloom itself to flower
-    world.setMaterial(x, y, new Flower());
+    // Transform bloom itself to flower (center of the flower)
+    world.setMaterial(x, y, new Flower(x, y));
   }
 
   /**

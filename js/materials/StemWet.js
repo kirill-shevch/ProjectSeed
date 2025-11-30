@@ -40,8 +40,6 @@ export class StemWet extends Material {
       // Increment bloom's water counter
       bloomPixel.material.waterCounter++;
 
-      console.log(`Watering bloom at (${chosen.x}, ${chosen.y}), counter now: ${bloomPixel.material.waterCounter}`);
-
       // This stem becomes dry
       const newStemDry = new StemDry(this.preferredDirection);
       newStemDry.cooldown = 15;
@@ -53,7 +51,6 @@ export class StemWet extends Material {
     // Check if there's a bloom nearby (but not adjacent) - if yes, pass water UP only
     const nearbyBloom = this.findNearbyBloom(x, y, world);
     if (nearbyBloom) {
-      console.log(`Stem at (${x}, ${y}) sees bloom at (${nearbyBloom.x}, ${nearbyBloom.y}) - passing water UP`);
       // There's a bloom somewhere nearby
       // DON'T water leaves, DON'T grow - ONLY pass water upward
       // This ensures water reaches the stem adjacent to the bloom

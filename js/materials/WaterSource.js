@@ -25,19 +25,40 @@ export class WaterSource extends Material {
 
     // Check if we can spawn water below
     const yBelow = y + 1;
-    if (yBelow >= world.height) return false;
+    if (yBelow < world.height) {
+      const belowPixel = world.getPixel(x, yBelow);
 
-    const belowPixel = world.getPixel(x, yBelow);
-    if (!belowPixel) return false;
-
-    // Spawn water if below is Air OR Water (to counteract vaporization)
-    if (belowPixel.material instanceof Air || belowPixel.material instanceof Water) {
-      world.setMaterial(x, yBelow, new Water());
-      this.spawnCooldown = 16; // 4 times slower (was 4, now 16)
-      return true;
+      // Only spawn below if it's Air (not if it's already Water or blocked)
+      if (belowPixel && belowPixel.material instanceof Air) {
+        world.setMaterial(x, yBelow, new Water());
+        this.spawnCooldown = 16; // 4 times slower (was 4, now 16)
+        return true;
+      }
     }
 
-    // If below is stone, earth, etc., don't spawn
+    // If below is blocked or already has water, try to spawn on the sides
+    const sides = [
+      { x: x - 1, y: y }, // left
+      { x: x + 1, y: y }  // right
+    ];
+
+    // Shuffle sides to randomize which one we try first
+    if (Math.random() < 0.5) {
+      sides.reverse();
+    }
+
+    for (const side of sides) {
+      if (side.x >= 0 && side.x < world.width) {
+        const sidePixel = world.getPixel(side.x, side.y);
+        if (sidePixel && sidePixel.material instanceof Air) {
+          world.setMaterial(side.x, side.y, new Water());
+          this.spawnCooldown = 16;
+          return true;
+        }
+      }
+    }
+
+    // Can't spawn anywhere (completely blocked)
     return false;
   }
 }

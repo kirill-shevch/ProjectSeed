@@ -26,8 +26,8 @@ export class Renderer {
     for (let y = 0; y < world.height; y++) {
       for (let x = 0; x < world.width; x++) {
         const pixel = world.getPixel(x, y);
-        const color = pixel.getColor();
-        
+        const color = pixel.getColor(x, y);
+
         this.ctx.fillStyle = color;
         this.ctx.fillRect(
           x * this.pixelSize,
