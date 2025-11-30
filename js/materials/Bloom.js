@@ -121,8 +121,9 @@ export class Bloom extends Material {
     // Step 9: move pointer
     pointerX += direction;
 
-    // Step 10: above and below pointer
+    // Step 10: above, center, and below pointer (completes the circle)
     positions.push({ x: pointerX, y: pointerY - 1 });
+    positions.push({ x: pointerX, y: pointerY });     // CENTER!
     positions.push({ x: pointerX, y: pointerY + 1 });
 
     return positions;

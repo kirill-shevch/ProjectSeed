@@ -10,7 +10,7 @@ export class Cloud extends Material {
   constructor(duplicationChance = 100) {
     super('Cloud', '#CCCCCC', 0); // Light gray, zero density (floats)
     this.duplicationChance = duplicationChance; // Starts at 100%
-    this.duplicationCooldown = 0; // 20 ticks between duplication attempts
+    this.duplicationCooldown = 20; // Start with cooldown to prevent immediate duplication
   }
 
   hasGravity() {
@@ -28,10 +28,9 @@ export class Cloud extends Material {
       }
     }
 
-    // 2. Spawn water (3% chance)
-    if (Math.random() < 0.03) {
+    // 2. Spawn water (0.15% chance)
+    if (Math.random() < 0.0015) {
       world.setMaterial(x, y, new Water());
-      return true;
     }
 
     // 3. Handle duplication attempts
@@ -50,7 +49,7 @@ export class Cloud extends Material {
       return true;
     }
 
-    // Always try to duplicate (very high success rate)
+    // Try to duplicate based on duplication chance
     const roll = Math.random() * 100;
 
     if (roll < this.duplicationChance) {
@@ -71,20 +70,24 @@ export class Cloud extends Material {
         const targetPixel = world.getPixel(target.x, target.y);
 
         if (targetPixel && targetPixel.material instanceof Air) {
-          // Spawn new cloud with reduced chance (only 0.5% reduction)
+          // Spawn new cloud with reduced chance (0.5% reduction)
           const newCloud = new Cloud(this.duplicationChance - 0.5);
           world.setMaterial(target.x, target.y, newCloud);
 
-          // This cloud also loses 0.5% (much slower decay)
+          // This cloud also loses 0.5%
           this.duplicationChance -= 0.5;
           return true;
         }
       }
+
+      // No space available - cloud disappears anyway (tried to duplicate but couldn't)
+      world.setMaterial(x, y, new Air());
+      return true;
     }
 
-    // If duplication failed or no space available, just wait for next cycle
-    // Don't disappear unless chance reaches 0
-    return false;
+    // Failed the roll - cloud disappears
+    world.setMaterial(x, y, new Air());
+    return true;
   }
 
   /**

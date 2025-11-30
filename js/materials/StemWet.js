@@ -244,9 +244,10 @@ export class StemWet extends Material {
           continue;
         }
 
-        // Skip if this is adjacent (already checked)
-        if (Math.abs(checkX - x) <= 1 && Math.abs(checkY - y) <= 1 &&
-            (checkX !== x || checkY !== y)) {
+        // Skip if this is cardinally adjacent (already checked by findAdjacentBlooms)
+        // But DON'T skip diagonals - they need to be detected for water routing
+        if ((checkX === x && Math.abs(checkY - y) === 1) ||
+            (checkY === y && Math.abs(checkX - x) === 1)) {
           continue;
         }
 
